@@ -1,36 +1,10 @@
 # -*- coding: utf-8 -*-
-import pickle
-import pandas as pd
-from drawPriceProfitChat import saveReportData
 import urllib
 from bs4 import BeautifulSoup
 import re
 import time
 import datetime
 from stmpTool import sendEmail
-
-def loadReportDataS4(startYear, endYear, basePath):
-	return loadSeasonDataS4(startYear, endYear, basePath, 'report')
-
-def loadSeasonDataS4(startYear, endYear, basePath, type):
-	ans = None
-	for year in range(startYear, endYear):
-		season = 4
-		try:
-			suff = '.'.join(['', str(year), str(season), 'pickle'])
-			path = basePath + type + suff
-			with open(path, 'rb') as fd:
-				df = pickle.load(fd)
-				if len(df) > 0:
-					if ans is None:
-						ans = df
-					else:
-						ans = pd.concat([ans, df])
-				else:
-					print 'miss', type, year, season
-		except Exception, ex:
-			print ex
-	return ans
 
 def getAnnouncement(code, name):
 	url = 'http://search.10jqka.com.cn/search?preParams=&ts=1&f=1&qs=site_stockpage_more&querytype=&tid=pubnote&bgid=&sdate=&edate=&tid=pubnote&w='+code
@@ -56,27 +30,22 @@ def getAnnouncement(code, name):
 	return ans
 
 if __name__ == '__main__':
-	startYear = 2014
-	endYear = 2017
-	basePath = 'data/'
-	code = '000651'
-
-	# saveReportData(startYear, endYear, basePath)
-	df = loadReportDataS4(startYear, endYear, basePath)
-	codes = list(set(df['code']))
+	stocks = []
+	with open('stocks.txt') as fd:
+		for line in fd.readlines():
+			line = line.decode('utf-8')
+			stocks.append(line.strip().split(','))
 	all = []
-	for i, code in enumerate(codes):
-		sub = df[df['code'] == code]
-		tt = sub[sub['roe'] < 15]
-		if len(tt) > 0:
-			continue
-		code, name = sub.iloc[0]['code'], sub.iloc[0]['name']
-		print name
-		arr = getAnnouncement(code, name)
-		all.extend(arr)
-		if len(all) >= 10:
-			now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-			sendEmail("股票公告"+now, ('\n'.join(all)).encode('utf-8'))
-			all = []
-		time.sleep(144)
-		# break
+	for name, code in stocks:
+		try:
+			print name
+			arr = getAnnouncement(code, name)
+			all.extend(arr)
+			if len(all) >= 10:
+				now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+				sendEmail("股票公告"+now, ('\n'.join(all)).encode('utf-8'))
+				all = []
+			time.sleep(144)
+			# break
+		except Exception, ex:
+			print ex
